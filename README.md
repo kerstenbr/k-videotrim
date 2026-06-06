@@ -29,7 +29,7 @@ http://localhost:8000
 3. Use os **handles** verde (IN) e vermelho (OUT) na timeline para definir o trecho
 4. Clique **Marcar IN** / **Marcar OUT** para capturar a posição atual do player
 5. Clique **Preview** para assistir apenas o trecho selecionado
-6. Clique **Exportar corte** — o arquivo cortado é baixado automaticamente
+6. Clique **Exportar** — o arquivo cortado e baixado automaticamente
 
 ## Atalhos de teclado
 
@@ -41,5 +41,5 @@ http://localhost:8000
 | `←`          | Retroceder 1 segundo     |
 | `→`          | Avançar 1 segundo        |
 | `P`          | Preview do trecho        |
-| `E`          | Exportar corte           |
+| `E`          | Exportar                 |
 | `Ctrl+O`     | Abrir outro arquivo      |

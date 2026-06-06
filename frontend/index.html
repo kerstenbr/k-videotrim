@@ -1,0 +1,1379 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>K-Video Trim</title>
+</head>
+
+<style>
+  /* ── Reset & Base ── */
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  :root {
+    --bg: #0f0f11;
+    --surface: #1a1a1f;
+    --surface2: #22222a;
+    --surface3: #2c2c36;
+    --border: #333340;
+    --text: #e8e8f0;
+    --muted: #888899;
+    --accent: #6c63ff;
+    --accent2: #a89fff;
+    --success: #3ecf8e;
+    --danger: #f56565;
+    --warning: #f6ad55;
+    --handle-in: #3ecf8e;
+    --handle-out: #f56565;
+    --region: rgba(108, 99, 255, 0.22);
+    --radius: 8px;
+    --radius-lg: 12px;
+  }
+
+  html,
+  body {
+    height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
+    overflow: hidden;
+  }
+
+  /* ── Layout ── */
+  #app {
+    display: grid;
+    grid-template-rows: 48px 1fr auto;
+    height: 100vh;
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+
+  /* ── Header ── */
+  header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 0 20px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+  }
+
+  header .logo {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 600;
+    font-size: 15px;
+    color: var(--text);
+    letter-spacing: -0.2px;
+  }
+
+  header .logo svg {
+    width: 20px;
+    height: 20px;
+    color: var(--accent);
+  }
+
+  header .pill {
+    font-size: 11px;
+    padding: 2px 8px;
+    background: var(--surface3);
+    border: 1px solid var(--border);
+    border-radius: 99px;
+    color: var(--muted);
+  }
+
+  header .spacer {
+    flex: 1;
+  }
+
+  /* ── Main content ── */
+  main {
+    display: grid;
+    grid-template-columns: 1fr 300px;
+    gap: 0;
+    overflow: hidden;
+  }
+
+  /* ── Drop Zone ── */
+  #drop-zone {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    height: 100%;
+    border-right: 1px solid var(--border);
+    cursor: pointer;
+    transition: background 0.2s;
+    position: relative;
+  }
+
+  #drop-zone:hover,
+  #drop-zone.drag-over {
+    background: var(--surface2);
+  }
+
+  #drop-zone .dz-icon {
+    width: 64px;
+    height: 64px;
+    border-radius: 16px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  #drop-zone .dz-icon svg {
+    width: 28px;
+    height: 28px;
+    color: var(--accent);
+  }
+
+  #drop-zone h2 {
+    font-size: 16px;
+    font-weight: 500;
+    color: var(--text);
+  }
+
+  #drop-zone p {
+    font-size: 13px;
+    color: var(--muted);
+  }
+
+  #drop-zone .formats {
+    font-size: 11px;
+    color: var(--muted);
+    padding: 4px 10px;
+    background: var(--surface2);
+    border-radius: 99px;
+  }
+
+  #file-input {
+    display: none;
+  }
+
+  /* ── Player Area ── */
+  #player-area {
+    display: none;
+    flex-direction: column;
+    height: 100%;
+    border-right: 1px solid var(--border);
+    overflow: hidden;
+  }
+
+  #video-wrapper {
+    flex: 1;
+    background: #000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    position: relative;
+  }
+
+  #video-wrapper video {
+    max-width: 100%;
+    max-height: 100%;
+    display: block;
+  }
+
+  /* ── Timeline ── */
+  #timeline-section {
+    padding: 12px 16px;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    user-select: none;
+  }
+
+  /* Timecodes row */
+  .tc-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+  }
+
+  .tc-box {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+  }
+
+  .tc-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .tc-dot.in {
+    background: var(--handle-in);
+  }
+
+  .tc-dot.out {
+    background: var(--handle-out);
+  }
+
+  .tc-label {
+    color: var(--muted);
+  }
+
+  .tc-value {
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 12px;
+    color: var(--text);
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 2px 7px;
+    min-width: 110px;
+    text-align: center;
+  }
+
+  .tc-dur {
+    font-size: 11px;
+    color: var(--muted);
+    font-family: 'SF Mono', 'Fira Code', monospace;
+  }
+
+  /* Waveform/timeline bar */
+  #timeline-bar {
+    position: relative;
+    height: 48px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    cursor: pointer;
+    overflow: visible;
+    margin-bottom: 8px;
+  }
+
+  /* Fundo da região selecionada */
+  #region-highlight {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    background: var(--region);
+    border-top: 2px solid var(--accent);
+    border-bottom: 2px solid var(--accent);
+    pointer-events: none;
+  }
+
+  /* Playhead */
+  #playhead {
+    position: absolute;
+    top: -4px;
+    bottom: -4px;
+    width: 2px;
+    background: #fff;
+    border-radius: 2px;
+    pointer-events: none;
+    z-index: 10;
+  }
+
+  #playhead::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 8px;
+    height: 8px;
+    background: #fff;
+    border-radius: 50%;
+  }
+
+  /* Handles IN / OUT */
+  .handle {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 12px;
+    border-radius: 3px;
+    cursor: ew-resize;
+    z-index: 20;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .handle::after {
+    content: '';
+    display: block;
+    width: 2px;
+    height: 60%;
+    border-radius: 2px;
+    background: rgba(255, 255, 255, 0.7);
+  }
+
+  #handle-in {
+    background: var(--handle-in);
+    transform: translateX(-50%);
+  }
+
+  #handle-out {
+    background: var(--handle-out);
+    transform: translateX(-50%);
+  }
+
+  /* Thumbnails canvas */
+  #thumbs-canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    border-radius: var(--radius);
+    opacity: 0.4;
+    pointer-events: none;
+  }
+
+  /* ── Transport / Controls ── */
+  .transport {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 6px 12px;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    background: var(--surface2);
+    color: var(--text);
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+    white-space: nowrap;
+  }
+
+  .btn:hover {
+    background: var(--surface3);
+    border-color: #444;
+  }
+
+  .btn:active {
+    transform: scale(0.97);
+  }
+
+  .btn svg {
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+  }
+
+  .btn-in {
+    border-color: var(--handle-in);
+    color: var(--handle-in);
+  }
+
+  .btn-out {
+    border-color: var(--handle-out);
+    color: var(--handle-out);
+  }
+
+  .btn-play {
+    padding: 6px 10px;
+  }
+
+  .btn-accent {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+  }
+
+  .btn-accent:hover {
+    background: #7c74ff;
+    border-color: #7c74ff;
+  }
+
+  .sep {
+    flex: 1;
+  }
+
+  /* ── Sidebar ── */
+  aside {
+    display: flex;
+    flex-direction: column;
+    background: var(--surface);
+    overflow-y: auto;
+  }
+
+  .sidebar-section {
+    padding: 16px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .sidebar-section h3 {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--muted);
+    margin-bottom: 12px;
+  }
+
+  /* File info */
+  .file-info-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 4px 0;
+    font-size: 12px;
+    border-bottom: 1px solid var(--surface3);
+  }
+
+  .file-info-row:last-child {
+    border-bottom: none;
+  }
+
+  .file-info-row .key {
+    color: var(--muted);
+  }
+
+  .file-info-row .val {
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 11px;
+    color: var(--text);
+    max-width: 140px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* Fine-tune inputs */
+  .fine-tune-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .ft-group label {
+    display: block;
+    font-size: 11px;
+    color: var(--muted);
+    margin-bottom: 4px;
+  }
+
+  .ft-group input[type=number] {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text);
+    padding: 5px 8px;
+    font-size: 12px;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    -moz-appearance: textfield;
+  }
+
+  .ft-group input[type=number]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+  }
+
+  .ft-group input[type=number]:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+
+  .ft-group .color-label {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-right: 4px;
+    vertical-align: middle;
+  }
+
+  /* Keyboard shortcuts */
+  .shortcut-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 3px 0;
+    font-size: 11px;
+  }
+
+  .shortcut-row .action {
+    color: var(--muted);
+  }
+
+  .key-chip {
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 10px;
+    padding: 1px 5px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    color: var(--text);
+  }
+
+  /* Export */
+  #export-btn {
+    width: 100%;
+    justify-content: center;
+    padding: 10px;
+    font-size: 13px;
+  }
+
+  #progress-wrap {
+    display: none;
+    margin-top: 10px;
+  }
+
+  #progress-bar-track {
+    height: 4px;
+    background: var(--surface3);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+
+  #progress-bar-fill {
+    height: 100%;
+    background: var(--accent);
+    border-radius: 4px;
+    width: 0%;
+    transition: width 0.3s;
+  }
+
+  #progress-label {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 5px;
+    text-align: center;
+  }
+
+  /* ── Status bar ── */
+  footer {
+    height: 26px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 0 16px;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  #status-msg {
+    flex: 1;
+  }
+
+  #status-msg.ok {
+    color: var(--success);
+  }
+
+  #status-msg.err {
+    color: var(--danger);
+  }
+
+  #status-msg.warn {
+    color: var(--warning);
+  }
+
+  /* ── Toast ── */
+  #toast {
+    position: fixed;
+    bottom: 40px;
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: var(--surface3);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 10px 20px;
+    font-size: 13px;
+    color: var(--text);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s, transform 0.25s;
+    z-index: 999;
+    white-space: nowrap;
+  }
+
+  #toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+
+  /* ── Scrollbar ── */
+  ::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: var(--surface);
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 3px;
+  }
+
+  /* ── Responsive ── */
+  @media (max-width: 900px) {
+    main {
+      grid-template-columns: 1fr;
+    }
+
+    aside {
+      display: none;
+    }
+  }
+</style>
+
+<body>
+
+  <div id="app">
+
+    <!-- ── Header ── -->
+    <header>
+      <div class="logo">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+          stroke-linejoin="round">
+          <circle cx="6" cy="6" r="3" />
+          <circle cx="18" cy="6" r="3" />
+          <circle cx="6" cy="18" r="3" />
+          <circle cx="18" cy="18" r="3" />
+          <line x1="6" y1="9" x2="6" y2="15" />
+          <line x1="18" y1="9" x2="18" y2="15" />
+          <line x1="9" y1="6" x2="15" y2="6" />
+          <line x1="9" y1="18" x2="15" y2="18" />
+        </svg>
+        K-Video Trim
+      </div>
+      <span class="pill">local &amp; privado</span>
+      <div class="spacer"></div>
+    </header>
+
+    <!-- ── Main ── -->
+    <main>
+
+      <!-- Drop zone (initial state) -->
+      <div id="drop-zone" role="button" tabindex="0" aria-label="Arraste um vídeo aqui ou clique para selecionar">
+        <div class="dz-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
+            stroke-linejoin="round">
+            <path d="M15 10l4.553-2.276A1 1 0 0121 8.724v6.552a1 1 0 01-1.447.894L15 14" />
+            <rect x="3" y="6" width="12" height="12" rx="2" />
+          </svg>
+        </div>
+        <h2>Arraste um vídeo aqui</h2>
+        <p>ou clique para selecionar o arquivo</p>
+        <span class="formats">MP4 · MOV · MKV · WEBM · AVI</span>
+        <input type="file" id="file-input" accept=".mp4,.mov,.mkv,.webm,.avi,video/*" />
+      </div>
+
+      <!-- Player area (shown after file loaded) -->
+      <div id="player-area" role="region" aria-label="Player de vídeo e timeline">
+        <!-- Video -->
+        <div id="video-wrapper">
+          <video id="video" preload="metadata"></video>
+        </div>
+
+        <!-- Timeline -->
+        <div id="timeline-section">
+
+          <!-- Timecodes -->
+          <div class="tc-row">
+            <div class="tc-box">
+              <span class="tc-dot in"></span>
+              <span class="tc-label">IN</span>
+              <span class="tc-value" id="tc-in">00:00:00.000</span>
+            </div>
+            <span class="tc-dur" id="tc-dur">duração: 00:00:00</span>
+            <div class="tc-box">
+              <span class="tc-label">OUT</span>
+              <span class="tc-dot out"></span>
+              <span class="tc-value" id="tc-out">00:00:00.000</span>
+            </div>
+          </div>
+
+          <!-- Bar -->
+          <div id="timeline-bar" role="slider" aria-label="Timeline de vídeo" aria-valuemin="0" aria-valuemax="100"
+            aria-valuenow="0">
+            <canvas id="thumbs-canvas"></canvas>
+            <div id="region-highlight"></div>
+            <div id="playhead"></div>
+            <div id="handle-in" class="handle" title="Arraste para ajustar ponto de início"></div>
+            <div id="handle-out" class="handle" title="Arraste para ajustar ponto de fim"></div>
+          </div>
+
+          <!-- Transport -->
+          <div class="transport">
+            <!-- Play/Pause -->
+            <button class="btn btn-play" id="btn-play" title="Play/Pause (Space)">
+              <svg id="icon-play" viewBox="0 0 24 24" fill="currentColor">
+                <polygon points="5,3 19,12 5,21" />
+              </svg>
+              <svg id="icon-pause" viewBox="0 0 24 24" fill="currentColor" style="display:none">
+                <rect x="6" y="4" width="4" height="16" />
+                <rect x="14" y="4" width="4" height="16" />
+              </svg>
+            </button>
+
+            <!-- Step back/forward -->
+            <button class="btn" id="btn-back" title="Retroceder 1s (←)">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="15,18 9,12 15,6" />
+              </svg>
+              1s
+            </button>
+            <button class="btn" id="btn-fwd" title="Avançar 1s (→)">
+              1s
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="9,18 15,12 9,6" />
+              </svg>
+            </button>
+
+            <div class="sep"></div>
+
+            <!-- Set IN/OUT -->
+            <button class="btn btn-in" id="btn-set-in" title="Marcar ponto IN aqui (I)">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="12" y1="5" x2="12" y2="19" />
+                <polyline points="5,12 12,5 19,12" />
+              </svg>
+              Marcar IN
+            </button>
+            <button class="btn btn-out" id="btn-set-out" title="Marcar ponto OUT aqui (O)">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="12" y1="19" x2="12" y2="5" />
+                <polyline points="19,12 12,19 5,12" />
+              </svg>
+              Marcar OUT
+            </button>
+
+            <div class="sep"></div>
+
+            <!-- Preview -->
+            <button class="btn" id="btn-preview" title="Preview do trecho selecionado">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polygon points="5,3 19,12 5,21" fill="currentColor" />
+                <line x1="19" y1="5" x2="19" y2="19" />
+              </svg>
+              Preview
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Sidebar ── -->
+      <aside>
+
+        <!-- File info -->
+        <div class="sidebar-section" id="file-info-section" style="display:none">
+          <h3>Arquivo</h3>
+          <div class="file-info-row"><span class="key">Nome</span><span class="val" id="info-name">—</span></div>
+          <div class="file-info-row"><span class="key">Tamanho</span><span class="val" id="info-size">—</span></div>
+          <div class="file-info-row"><span class="key">Duração</span><span class="val" id="info-dur">—</span></div>
+          <div class="file-info-row"><span class="key">Resolução</span><span class="val" id="info-res">—</span></div>
+        </div>
+
+        <!-- Fine tune -->
+        <div class="sidebar-section" id="fine-tune-section" style="display:none">
+          <h3>Ajuste fino (segundos)</h3>
+          <div class="fine-tune-row">
+            <div class="ft-group">
+              <label><span class="color-label" style="background:var(--handle-in)"></span>Início (IN)</label>
+              <input type="number" id="ft-in" min="0" step="0.001" placeholder="0.000" />
+            </div>
+            <div class="ft-group">
+              <label><span class="color-label" style="background:var(--handle-out)"></span>Fim (OUT)</label>
+              <input type="number" id="ft-out" min="0" step="0.001" placeholder="0.000" />
+            </div>
+          </div>
+        </div>
+
+        <!-- Shortcuts -->
+        <div class="sidebar-section">
+          <h3>Atalhos de teclado</h3>
+          <div class="shortcut-row"><span class="action">Play / Pause</span><span class="key-chip">Space</span></div>
+          <div class="shortcut-row"><span class="action">Marcar IN</span><span class="key-chip">I</span></div>
+          <div class="shortcut-row"><span class="action">Marcar OUT</span><span class="key-chip">O</span></div>
+          <div class="shortcut-row"><span class="action">← 1 segundo</span><span class="key-chip">←</span></div>
+          <div class="shortcut-row"><span class="action">→ 1 segundo</span><span class="key-chip">→</span></div>
+          <div class="shortcut-row"><span class="action">Preview</span><span class="key-chip">P</span></div>
+          <div class="shortcut-row"><span class="action">Exportar</span><span class="key-chip">E</span></div>
+          <div class="shortcut-row"><span class="action">Abrir arquivo</span><span class="key-chip">Ctrl+O</span></div>
+        </div>
+
+        <!-- Export -->
+        <div class="sidebar-section" id="export-section" style="display:none">
+          <h3>Exportar</h3>
+          <button class="btn btn-accent" id="export-btn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:15px;height:15px">
+              <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
+              <polyline points="7,10 12,15 17,10" />
+              <line x1="12" y1="15" x2="12" y2="3" />
+            </svg>
+            Exportar corte
+          </button>
+          <div id="progress-wrap">
+            <div id="progress-bar-track">
+              <div id="progress-bar-fill"></div>
+            </div>
+            <div id="progress-label">Processando...</div>
+          </div>
+        </div>
+
+        <!-- Spacer -->
+        <div style="flex:1"></div>
+
+        <!-- Change file -->
+        <div class="sidebar-section" id="change-file-section" style="display:none">
+          <button class="btn" id="btn-change" style="width:100%; justify-content:center; font-size:12px;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px">
+              <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
+              <polyline points="17,8 12,3 7,8" />
+              <line x1="12" y1="3" x2="12" y2="15" />
+            </svg>
+            Trocar vídeo
+          </button>
+        </div>
+      </aside>
+    </main>
+
+    <!-- Status bar -->
+    <footer>
+      <span id="status-msg">Arraste um vídeo para começar.</span>
+      <span id="time-display" style="font-family:monospace;font-size:11px;display:none">00:00:00</span>
+    </footer>
+  </div>
+
+  <div id="toast" role="alert" aria-live="polite"></div>
+
+  <script>
+    // ── Helpers ──────────────────────────────────────────────────────────────────
+
+    function fmt(s, ms = true) {
+      if (!isFinite(s) || s < 0) s = 0;
+      const h = Math.floor(s / 3600);
+      const m = Math.floor((s % 3600) / 60);
+      const sec = s % 60;
+      const base = [
+        String(h).padStart(2, '0'),
+        String(m).padStart(2, '0'),
+        String(Math.floor(sec)).padStart(2, '0')
+      ].join(':');
+      if (!ms) return base;
+      const msPart = String(Math.round((sec % 1) * 1000)).padStart(3, '0');
+      return base + '.' + msPart;
+    }
+
+    function fmtSize(bytes) {
+      if (bytes < 1024) return bytes + ' B';
+      if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+      if (bytes < 1024 * 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+      return (bytes / (1024 * 1024 * 1024)).toFixed(2) + ' GB';
+    }
+
+    function clamp(v, min, max) { return Math.min(Math.max(v, min), max); }
+
+    let toastTimer = null;
+    function toast(msg, duration = 3000) {
+      const el = document.getElementById('toast');
+      el.textContent = msg;
+      el.classList.add('show');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => el.classList.remove('show'), duration);
+    }
+
+    function setStatus(msg, type = '') {
+      const el = document.getElementById('status-msg');
+      el.textContent = msg;
+      el.className = type;
+    }
+
+    // ── State ─────────────────────────────────────────────────────────────────────
+
+    const state = {
+      file: null,
+      duration: 0,
+      inTime: 0,
+      outTime: 0,
+      previewing: false,
+      exporting: false,
+    };
+
+    // ── DOM refs ─────────────────────────────────────────────────────────────────
+
+    const dropZone = document.getElementById('drop-zone');
+    const fileInput = document.getElementById('file-input');
+    const playerArea = document.getElementById('player-area');
+    const video = document.getElementById('video');
+    const tlBar = document.getElementById('timeline-bar');
+    const playhead = document.getElementById('playhead');
+    const region = document.getElementById('region-highlight');
+    const hIn = document.getElementById('handle-in');
+    const hOut = document.getElementById('handle-out');
+    const tcIn = document.getElementById('tc-in');
+    const tcOut = document.getElementById('tc-out');
+    const tcDur = document.getElementById('tc-dur');
+    const ftIn = document.getElementById('ft-in');
+    const ftOut = document.getElementById('ft-out');
+    const iconPlay = document.getElementById('icon-play');
+    const iconPause = document.getElementById('icon-pause');
+    const timeDisplay = document.getElementById('time-display');
+    const thumbsCanvas = document.getElementById('thumbs-canvas');
+    const progressWrap = document.getElementById('progress-wrap');
+    const progressFill = document.getElementById('progress-bar-fill');
+    const progressLabel = document.getElementById('progress-label');
+
+    // ── File loading ──────────────────────────────────────────────────────────────
+
+    function loadFile(file) {
+      const allowed = ['video/mp4', 'video/quicktime', 'video/x-matroska', 'video/webm', 'video/x-msvideo', 'video/avi'];
+      const ext = file.name.split('.').pop().toLowerCase();
+      const allowedExt = ['mp4', 'mov', 'mkv', 'webm', 'avi'];
+      if (!allowedExt.includes(ext)) {
+        toast('❌ Formato não suportado: .' + ext);
+        return;
+      }
+      state.file = file;
+      const url = URL.createObjectURL(file);
+      video.src = url;
+      video.load();
+      setStatus('Carregando vídeo...');
+    }
+
+    video.addEventListener('loadedmetadata', () => {
+      state.duration = video.duration;
+      state.inTime = 0;
+      state.outTime = state.duration;
+
+      // Show player
+      dropZone.style.display = 'none';
+      playerArea.style.display = 'flex';
+
+      // Show sidebar sections
+      document.getElementById('file-info-section').style.display = 'block';
+      document.getElementById('fine-tune-section').style.display = 'block';
+      document.getElementById('export-section').style.display = 'block';
+      document.getElementById('change-file-section').style.display = 'block';
+      timeDisplay.style.display = '';
+
+      // File info
+      document.getElementById('info-name').textContent = state.file.name;
+      document.getElementById('info-size').textContent = fmtSize(state.file.size);
+      document.getElementById('info-dur').textContent = fmt(state.duration, false);
+      document.getElementById('info-res').textContent = '—'; // populated after play
+
+      updateUI();
+      generateThumbs();
+      setStatus('Vídeo carregado. Defina os pontos IN e OUT.', 'ok');
+      toast('✓ Vídeo carregado: ' + state.file.name);
+    });
+
+    video.addEventListener('canplay', () => {
+      if (video.videoWidth) {
+        document.getElementById('info-res').textContent = video.videoWidth + '×' + video.videoHeight;
+      }
+    });
+
+    video.addEventListener('error', () => {
+      setStatus('Erro ao carregar o vídeo.', 'err');
+      toast('❌ Não foi possível carregar o vídeo.');
+    });
+
+    // ── Thumbnail generation ──────────────────────────────────────────────────────
+
+    function generateThumbs() {
+      const canvas = thumbsCanvas;
+      const W = tlBar.offsetWidth;
+      const H = tlBar.offsetHeight;
+      canvas.width = W;
+      canvas.height = H;
+      const ctx = canvas.getContext('2d');
+      ctx.clearRect(0, 0, W, H);
+
+      const count = Math.min(20, Math.floor(W / 40));
+      if (count < 1 || state.duration === 0) return;
+
+      // Use offscreen video clone for thumbnails
+      const tv = document.createElement('video');
+      tv.src = video.src;
+      tv.muted = true;
+      tv.preload = 'auto';
+
+      const offCanvas = document.createElement('canvas');
+      offCanvas.width = Math.floor(W / count);
+      offCanvas.height = H;
+      const offCtx = offCanvas.getContext('2d');
+
+      let i = 0;
+      function captureNext() {
+        if (i >= count) { tv.src = ''; return; }
+        const t = (i / count) * state.duration + 0.1;
+        tv.currentTime = t;
+      }
+
+      tv.addEventListener('seeked', () => {
+        const tw = Math.floor(W / count);
+        offCtx.drawImage(tv, 0, 0, tw, H);
+        ctx.drawImage(offCanvas, i * tw, 0, tw, H);
+        i++;
+        captureNext();
+      });
+
+      tv.addEventListener('loadedmetadata', () => captureNext());
+      tv.load();
+    }
+
+    // ── Playhead & UI update ──────────────────────────────────────────────────────
+
+    function timeToPercent(t) {
+      return state.duration > 0 ? clamp(t / state.duration * 100, 0, 100) : 0;
+    }
+
+    function percentToTime(pct) {
+      return clamp(pct / 100 * state.duration, 0, state.duration);
+    }
+
+    function barWidth() { return tlBar.offsetWidth; }
+
+    function updateUI() {
+      const dur = state.duration;
+      if (dur === 0) return;
+
+      const inPct = timeToPercent(state.inTime);
+      const outPct = timeToPercent(state.outTime);
+
+      // Handles
+      hIn.style.left = inPct + '%';
+      hOut.style.left = outPct + '%';
+
+      // Region highlight
+      region.style.left = inPct + '%';
+      region.style.width = (outPct - inPct) + '%';
+
+      // Timecodes
+      tcIn.textContent = fmt(state.inTime);
+      tcOut.textContent = fmt(state.outTime);
+      tcDur.textContent = 'duração: ' + fmt(state.outTime - state.inTime, false);
+
+      // Fine-tune inputs
+      ftIn.value = state.inTime.toFixed(3);
+      ftOut.value = state.outTime.toFixed(3);
+      ftIn.max = state.outTime.toFixed(3);
+      ftOut.min = state.inTime.toFixed(3);
+      ftOut.max = dur.toFixed(3);
+    }
+
+    function updatePlayhead() {
+      const pct = timeToPercent(video.currentTime);
+      playhead.style.left = pct + '%';
+      timeDisplay.textContent = fmt(video.currentTime, false);
+
+      // Stop preview at OUT
+      if (state.previewing && video.currentTime >= state.outTime) {
+        video.pause();
+        video.currentTime = state.inTime;
+        state.previewing = false;
+        setPlayIcon(false);
+      }
+    }
+
+    video.addEventListener('timeupdate', updatePlayhead);
+
+    function setPlayIcon(playing) {
+      iconPlay.style.display = playing ? 'none' : '';
+      iconPause.style.display = playing ? '' : 'none';
+    }
+
+    video.addEventListener('play', () => setPlayIcon(true));
+    video.addEventListener('pause', () => setPlayIcon(false));
+    video.addEventListener('ended', () => { state.previewing = false; setPlayIcon(false); });
+
+    // ── Timeline interaction ──────────────────────────────────────────────────────
+
+    // Click on bar → seek
+    tlBar.addEventListener('click', (e) => {
+      if (e.target === hIn || e.target === hOut) return;
+      const rect = tlBar.getBoundingClientRect();
+      const pct = clamp((e.clientX - rect.left) / rect.width * 100, 0, 100);
+      video.currentTime = percentToTime(pct);
+    });
+
+    // Drag handles
+    function setupHandleDrag(handle, which) {
+      let dragging = false;
+
+      handle.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        dragging = true;
+        document.body.style.cursor = 'ew-resize';
+      });
+
+      // Touch support
+      handle.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        dragging = true;
+      }, { passive: false });
+
+      function onMove(clientX) {
+        if (!dragging) return;
+        const rect = tlBar.getBoundingClientRect();
+        const pct = clamp((clientX - rect.left) / rect.width * 100, 0, 100);
+        const t = percentToTime(pct);
+
+        if (which === 'in') {
+          state.inTime = clamp(t, 0, state.outTime - 0.1);
+        } else {
+          state.outTime = clamp(t, state.inTime + 0.1, state.duration);
+        }
+        updateUI();
+        video.currentTime = which === 'in' ? state.inTime : state.outTime;
+      }
+
+      document.addEventListener('mousemove', (e) => onMove(e.clientX));
+      document.addEventListener('mouseup', () => { dragging = false; document.body.style.cursor = ''; });
+      document.addEventListener('touchmove', (e) => onMove(e.touches[0].clientX), { passive: true });
+      document.addEventListener('touchend', () => { dragging = false; });
+    }
+
+    setupHandleDrag(hIn, 'in');
+    setupHandleDrag(hOut, 'out');
+
+    // ── Transport buttons ─────────────────────────────────────────────────────────
+
+    document.getElementById('btn-play').addEventListener('click', togglePlay);
+    document.getElementById('btn-back').addEventListener('click', () => { video.currentTime = Math.max(0, video.currentTime - 1); });
+    document.getElementById('btn-fwd').addEventListener('click', () => { video.currentTime = Math.min(state.duration, video.currentTime + 1); });
+
+    document.getElementById('btn-set-in').addEventListener('click', () => {
+      state.inTime = clamp(video.currentTime, 0, state.outTime - 0.1);
+      updateUI();
+      setStatus('Ponto IN marcado em ' + fmt(state.inTime), 'ok');
+    });
+
+    document.getElementById('btn-set-out').addEventListener('click', () => {
+      state.outTime = clamp(video.currentTime, state.inTime + 0.1, state.duration);
+      updateUI();
+      setStatus('Ponto OUT marcado em ' + fmt(state.outTime), 'ok');
+    });
+
+    document.getElementById('btn-preview').addEventListener('click', startPreview);
+
+    function togglePlay() {
+      if (!state.file) return;
+      if (video.paused) { video.play(); } else { video.pause(); }
+    }
+
+    function startPreview() {
+      if (!state.file || state.duration === 0) return;
+      state.previewing = true;
+      video.currentTime = state.inTime;
+      video.play();
+      setStatus('Preview: ' + fmt(state.inTime) + ' → ' + fmt(state.outTime));
+    }
+
+    // ── Fine-tune inputs ──────────────────────────────────────────────────────────
+
+    ftIn.addEventListener('change', () => {
+      const v = parseFloat(ftIn.value);
+      if (!isNaN(v)) {
+        state.inTime = clamp(v, 0, state.outTime - 0.001);
+        video.currentTime = state.inTime;
+        updateUI();
+      }
+    });
+
+    ftOut.addEventListener('change', () => {
+      const v = parseFloat(ftOut.value);
+      if (!isNaN(v)) {
+        state.outTime = clamp(v, state.inTime + 0.001, state.duration);
+        video.currentTime = state.outTime;
+        updateUI();
+      }
+    });
+
+    // ── Keyboard shortcuts ────────────────────────────────────────────────────────
+
+    document.addEventListener('keydown', (e) => {
+      const tag = document.activeElement.tagName.toLowerCase();
+      if (tag === 'input' || tag === 'textarea') return;
+
+      switch (e.key) {
+        case ' ':
+          e.preventDefault();
+          togglePlay();
+          break;
+        case 'i': case 'I':
+          if (state.file) {
+            state.inTime = clamp(video.currentTime, 0, state.outTime - 0.1);
+            updateUI();
+            setStatus('IN: ' + fmt(state.inTime), 'ok');
+          }
+          break;
+        case 'o': case 'O':
+          if (state.file) {
+            state.outTime = clamp(video.currentTime, state.inTime + 0.1, state.duration);
+            updateUI();
+            setStatus('OUT: ' + fmt(state.outTime), 'ok');
+          }
+          break;
+        case 'ArrowLeft':
+          e.preventDefault();
+          if (state.file) video.currentTime = Math.max(0, video.currentTime - 1);
+          break;
+        case 'ArrowRight':
+          e.preventDefault();
+          if (state.file) video.currentTime = Math.min(state.duration, video.currentTime + 1);
+          break;
+        case 'p': case 'P':
+          startPreview();
+          break;
+        case 'e': case 'E':
+          if (state.file) exportVideo();
+          break;
+        case 'o':
+          if (e.ctrlKey || e.metaKey) { e.preventDefault(); fileInput.click(); }
+          break;
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key === 'o') {
+        e.preventDefault();
+        fileInput.click();
+      }
+    });
+
+    // ── Drop Zone ─────────────────────────────────────────────────────────────────
+
+    dropZone.addEventListener('click', () => fileInput.click());
+    dropZone.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') fileInput.click(); });
+
+    fileInput.addEventListener('change', () => {
+      if (fileInput.files[0]) loadFile(fileInput.files[0]);
+      fileInput.value = '';
+    });
+
+    dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+    dropZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropZone.classList.remove('drag-over');
+      const f = e.dataTransfer.files[0];
+      if (f) loadFile(f);
+    });
+
+    // Also accept drag on the player area after load
+    playerArea.addEventListener('dragover', (e) => e.preventDefault());
+    playerArea.addEventListener('drop', (e) => {
+      e.preventDefault();
+      const f = e.dataTransfer.files[0];
+      if (f) loadFile(f);
+    });
+
+    // Change file button
+    document.getElementById('btn-change').addEventListener('click', () => fileInput.click());
+
+    // ── Export ────────────────────────────────────────────────────────────────────
+
+    document.getElementById('export-btn').addEventListener('click', exportVideo);
+
+    async function exportVideo() {
+      if (!state.file || state.exporting) return;
+      if (state.inTime >= state.outTime) {
+        toast('⚠️ Ponto IN deve ser menor que OUT.');
+        return;
+      }
+
+      state.exporting = true;
+      progressWrap.style.display = 'block';
+      progressFill.style.width = '0%';
+      progressLabel.textContent = 'Enviando arquivo...';
+      setStatus('Exportando...', 'warn');
+
+      // Animate progress (indeterminate during upload)
+      let fakeProgress = 0;
+      const fakeTimer = setInterval(() => {
+        fakeProgress = Math.min(fakeProgress + Math.random() * 3, 85);
+        progressFill.style.width = fakeProgress + '%';
+      }, 300);
+
+      try {
+        const formData = new FormData();
+        formData.append('file', state.file, state.file.name);
+        formData.append('start', state.inTime.toFixed(3));
+        formData.append('end', state.outTime.toFixed(3));
+
+        progressLabel.textContent = 'Processando';
+
+        const response = await fetch('/api/trim', {
+          method: 'POST',
+          body: formData,
+        });
+
+        clearInterval(fakeTimer);
+
+        if (!response.ok) {
+          let msg = 'Erro no servidor.';
+          try { const j = await response.json(); msg = j.detail || j.error || msg; } catch { }
+          throw new Error(msg);
+        }
+
+        progressFill.style.width = '100%';
+        progressLabel.textContent = 'Baixando...';
+
+        // Get filename from Content-Disposition
+        const cd = response.headers.get('Content-Disposition') || '';
+        let filename = 'video_trim.mp4';
+        const match = cd.match(/filename="?([^";\n]+)"?/);
+        if (match) filename = match[1];
+
+        // Download
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(url), 5000);
+
+        setStatus('✓ Exportado: ' + filename, 'ok');
+        toast('✓ Download iniciado: ' + filename);
+        progressLabel.textContent = 'Concluído!';
+        setTimeout(() => { progressWrap.style.display = 'none'; }, 3000);
+
+      } catch (err) {
+        clearInterval(fakeTimer);
+        progressWrap.style.display = 'none';
+        setStatus('Erro ao exportar: ' + err.message, 'err');
+        toast('❌ ' + err.message, 5000);
+      } finally {
+        state.exporting = false;
+      }
+    }
+
+    // ── Resize: redraw thumbs ─────────────────────────────────────────────────────
+    let resizeTimer;
+    window.addEventListener('resize', () => {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(() => {
+        if (state.file) generateThumbs();
+      }, 300);
+    });
+  </script>
+
+</body>
+
+</html>

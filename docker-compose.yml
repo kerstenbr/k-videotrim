@@ -1,0 +1,11 @@
+services:
+  k-videotrim:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      - uploads:/tmp/k-videotrim_uploads
+    restart: unless-stopped
+
+volumes:
+  uploads:
